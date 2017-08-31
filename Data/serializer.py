@@ -15,7 +15,3 @@ class HourDataSerializer(serializers.ModelSerializer):
 
 
 
-class PipeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Pipe
-        fields = ('NickName', 'SetedDate','FK_User')

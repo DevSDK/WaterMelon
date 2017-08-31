@@ -2,12 +2,14 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 # Create your views here.
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
-import Pipe
+from Data.models import RawData
 from Data.serializer import RawDataSerializer, HourDataSerializer
+from Pipe.models import Pipe
 
 '''
 Raw Data Field 는 10만개 유지(변동가능)
@@ -78,4 +80,30 @@ def GetListDay(request):
 
 def GetListYear(request):
     pass
+@csrf_exempt
+def PostData(request):
+    if request.method == 'GET':
+        return HttpResponse("{\"message\": \"Invalid GET Method\"}", status=400)
+    if request.user is None:
+        return HttpResponse("{\"message\": \"not allowed user session\"}", status=400)
+    if request.user.is_authenticated() == False:
+        return HttpResponse("{\"message\": \"Should be login\"}", status=400)
+
+    temp = request.POST.get("Temp")
+    value = request.POST.get("Data")
+    pipe = request.POST.get("Pipe")
+
+
+    if temp is None or value is None or pipe is None:
+        return HttpResponse("{\"message\": \"parameter required Temp, Data, Pipe\"}", status=400)
+
+    if Pipe.objects.filter(id = pipe, FK_User=request.user) is None:
+        return HttpResponse("{\"message\": \"Invalid Pipe\"}", status=400)
+
+
+    add_data = RawData.objects.create(Temp = temp, Data = value, FK_Pipe_ID = Pipe.objects.filter(id=pipe).first())
+
+    add_data.save()
+    return HttpResponse("{\"message\": \"Success\"}")
+
 

@@ -35,8 +35,6 @@ GET	/user/profile		response: Profile  Info {Name,Etc...}
 '''
 
 
-
-@api_view(['POST'])
 @csrf_exempt
 def PostLogin(request):
     try:
