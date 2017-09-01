@@ -1,3 +1,4 @@
+import datetime
 from django.http import HttpResponse
 from django.shortcuts import render
 
@@ -7,7 +8,7 @@ from rest_framework.decorators import api_view, renderer_classes
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
-from Data.models import RawData
+from Data.models import RawData, HourData
 from Data.serializer import RawDataSerializer, HourDataSerializer
 from Pipe.models import Pipe
 
@@ -32,6 +33,85 @@ GET	/user/profile		response: Profile  Info {Name,Etc...}
 '''
 
 
+def GetAverageRange(request):
+    if request.method == 'POST':
+        return HttpResponse("{\"message\":\"Invalid POST sMethod \"}", status=400)
+    if not request.user.is_authenticated():
+        return HttpResponse("{\"message\":\"Not authenticated\"}", status=401)
+
+    start_date_str = request.GET.get("start_date")
+    end_date_str = request.GET.get("end_date")
+    if start_date_str is None:
+        return HttpResponse("{\"message\":\"start_date must require\"}", status=401)
+
+    if end_date_str is None:
+        date = datetime.datetime.now().date()
+        startdate = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        datedata = RawData.objects.filter(DateTime__range = [startdate.strftime("%Y-%m-%d"), date.strftime("%Y-%m-%d")])
+        data_sum = 0.0
+        temp_sum = 0.0
+
+
+        if datedata.count() == 0 :
+            return HttpResponse("{\"average_data\":\"" + str(0.0)+ "\",\"average_temp\":\"" + str(0.0) + "\"}");
+
+        for i in datedata:
+            data_sum += i.Data
+            temp_sum += i.Temp
+
+        average_data = data_sum/datedata.count()
+        average_temp = temp_sum/datedata.count()
+
+        return HttpResponse("{\"average_data\":\""+ average_data.__str__()+"\",\"average_temp\":\""+average_temp.__str__()+"\"}");
+
+
+
+    startdate = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    endtime = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
+    datedata = HourData.objects.filter(DateTime__range=[startdate.strftime("%Y-%m-%d"), endtime.strftime("%Y-%m-%d")])
+    data_sum = 0.0
+    temp_sum = 0.0
+
+    if datedata.count() == 0:
+        return HttpResponse("{\"average_data\":\"" + str(0.0) + "\",\"average_temp\":\"" + str(0.0) + "\"}");
+
+    for i in datedata:
+        data_sum += i.Data
+        temp_sum += i.Temp
+
+    average_data = data_sum / datedata.count()
+    average_temp = temp_sum / datedata.count()
+
+    return HttpResponse("{\"average_data\":\""+ average_data.__str__()+"\",\"average_temp\":\""+average_temp.__str__()+"\"}");
+
+
+@api_view(['GET'])
+@renderer_classes((JSONRenderer,))
+def GetListRange(request):
+    if request.method == 'POST':
+        return HttpResponse("{\"message\":\"Invalid POST sMethod \"}", status=400)
+    if not request.user.is_authenticated():
+        return HttpResponse("{\"message\":\"Not authenticated\"}", status=401)
+
+    start_date_str = request.GET.get("start_date")
+    end_date_str = request.GET.get("end_date")
+    if start_date_str is None:
+        return HttpResponse("{\"message\":\"start_date must require\"}", status=401)
+
+
+    if end_date_str is None:
+        date = datetime.datetime.now().date() + datetime.timedelta(days=1)
+        startdate = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+        datedata = HourData.objects.filter(DateTime__range = [startdate.strftime("%Y-%m-%d"), date.strftime("%Y-%m-%d")])
+        serializer = HourDataSerializer(datedata, many=True)
+        return Response(serializer.data)
+
+    startdate = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
+    endtime = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date() + datetime.timedelta(days=1)
+    datedata = HourData.objects.filter(DateTime__range=[startdate.strftime("%Y-%m-%d"), endtime.strftime("%Y-%m-%d")])
+    serializer = HourDataSerializer(datedata, many=True)
+    return Response(serializer.data)
+
 
 
 
@@ -48,38 +128,11 @@ def GetCurrentData(request):
     if pipe is None:
         return HttpResponse("{\'message\":\"require parameter - pipe\"}", status=400)
 
-    data = Pipe.objects.filter(FK_Pipe_ID=pipe)
-    serializer = RawDataSerializer(data, many=True)
+    data = RawData.objects.filter(FK_Pipe_ID=pipe).last()
+    serializer = RawDataSerializer(data)
 
     return Response(serializer.data)
 
-
-def GetListDay(request):
-    if request.method == 'POST':
-        return HttpResponse("{\"message\":\"Invalid Method \"}", status=400)
-
-    if not request.user.is_authenticated():
-        return HttpResponse("{\"message\":\"Not authenticated\"}", status=401)
-
-    pipe = request.GET.get('pipe')
-    if pipe is None:
-        return HttpResponse("{\'message\":\"invalid parameter - pipe\"}", status=400)
-    datestr = request.GET.get('date')
-
-    if datestr is None:
-        return HttpResponse("{\'message\":\"invalid parameter - date\"}", status=400)
-
-        date = datetime.datetime.strptime(datestr, "%Y-%m-%d").date()
-        data = Pipe.objects.filter(FK_Device=pipe)
-        endtime = date + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
-        datedata = data.filter(Date__range=[date.strftime("%Y-%m-%d"), endtime.strftime("%Y-%m-%d")])
-        serializer = HourDataSerializer(datedata, many=True)
-    return Response(serializer.data)
-
-
-
-def GetListYear(request):
-    pass
 @csrf_exempt
 def PostData(request):
     if request.method == 'GET':
@@ -100,10 +153,11 @@ def PostData(request):
     if Pipe.objects.filter(id = pipe, FK_User=request.user) is None:
         return HttpResponse("{\"message\": \"Invalid Pipe\"}", status=400)
 
+    saved_average = HourData.objects.filter(id = pipe).last()
 
     add_data = RawData.objects.create(Temp = temp, Data = value, FK_Pipe_ID = Pipe.objects.filter(id=pipe).first())
-
     add_data.save()
+
     return HttpResponse("{\"message\": \"Success\"}")
 
 

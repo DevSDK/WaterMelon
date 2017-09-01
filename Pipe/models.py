@@ -5,5 +5,5 @@ from django.db import models
 
 class Pipe(models.Model):
     NickName = models.CharField(max_length=255)
-    SetedDate = models.DateTimeField(auto_now=True)
+    SavedDate = models.DateTimeField(auto_now=True)
     FK_User = models.ForeignKey(User)

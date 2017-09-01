@@ -13,6 +13,6 @@ class RawData(models.Model):
 
 class HourData(models.Model):
     Data = models.FloatField()
-    DateTime = models.DateTimeField()
     Temp = models.FloatField()
     FK_Pipe_ID = models.ForeignKey(Pipe)
+    DateTime = models.DateTimeField()

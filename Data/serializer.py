@@ -10,7 +10,7 @@ class RawDataSerializer(serializers.ModelSerializer):
 
 class HourDataSerializer(serializers.ModelSerializer):
     class Meta:
-        models = HourData
+        model = HourData
         fields = ('Data', 'Temp', 'FK_Pipe_ID', 'DateTime')
 
 
